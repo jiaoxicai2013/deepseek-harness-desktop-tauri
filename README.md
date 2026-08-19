@@ -15,10 +15,12 @@ dp-harness-dt/
 │   └── pnpm-store/ npm-cache/   # 包缓存
 ├── dsh-local-client/            # ★ 本地客户端工程（Tauri v2）
 │   ├── src-tauri/               # Rust 壳（host sidecar 接线）
-│   ├── resources/runtime/       # 打包进 .app 的运行时
+│   ├── src-tauri/resources/runtime/ # 打包进 .app 的运行时
 │   ├── scripts/assemble-runtime.mjs
+│   ├── scripts/gen-icon.mjs      # 图标生成（显示器 + 官方鲸鱼 logo）
 │   └── README.md                # 客户端详细说明
-└── gen-icon.py                  # 图标生成（一次性）
+├── assets/                      # 赞助收款码（微信/支付宝）
+└── .ssh/                        # 推送用 SSH 密钥（不入库）
 ```
 
 ## 已完成
@@ -56,3 +58,14 @@ npx tauri build           # 打 .app（src-tauri/target/release/bundle/macos/）
 ```
 
 未签名应用首次打开：右键 → 打开。
+## 赞助支持 ☕
+
+如果这个项目对你有帮助，欢迎请我喝杯咖啡：
+
+<p align="center">
+  <img src="assets/wechat.jpg" alt="微信收款码" width="240">
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <!-- 支付宝收款码：将图片保存为 assets/alipay.jpg 后取消本行注释
+  <img src="assets/alipay.jpg" alt="支付宝收款码" width="240">
+  -->
+</p>
