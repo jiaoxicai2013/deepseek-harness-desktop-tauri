@@ -14,7 +14,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["app"],
+    "targets": ["app", "dmg"],
     "category": "DeveloperTool",
     "shortDescription": "DeepSeek Harness local desktop client",
     "longDescription": "A local desktop client for DeepSeek Harness: the Node host sidecar serves the official web UI, wrapped in a Tauri shell.",

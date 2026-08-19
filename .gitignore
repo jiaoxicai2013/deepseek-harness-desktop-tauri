@@ -22,3 +22,6 @@ dsh-local-client/src-tauri/icons/ios/
 
 # ---- OS cruft ----
 .DS_Store
+
+# ---- build artifacts / installers ----
+dist/
