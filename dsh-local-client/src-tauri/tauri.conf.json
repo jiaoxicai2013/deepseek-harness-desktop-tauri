@@ -1,0 +1,24 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "DeepSeek Harness Local",
+  "version": "0.1.0",
+  "identifier": "ai.deepseek.harness-local",
+  "build": {
+    "frontendDist": "../shell-dist"
+  },
+  "app": {
+    "windows": [],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["app"],
+    "category": "DeveloperTool",
+    "shortDescription": "DeepSeek Harness local desktop client",
+    "longDescription": "A local desktop client for DeepSeek Harness: the Node host sidecar serves the official web UI, wrapped in a Tauri shell.",
+    "icon": ["icons/icon.icns", "icons/icon.png"],
+    "resources": { "resources/runtime": "runtime" }
+  }
+}

@@ -1,0 +1,21 @@
+# ---- regenerable/heavy: toolchains & caches ----
+.tools/
+.pnpm-store/
+
+# ---- upstream source clone (see README: clone separately) ----
+deepseek-harness/
+
+# ---- client: node & rust build outputs ----
+dsh-local-client/node_modules/
+dsh-local-client/src-tauri/target/
+dsh-local-client/src-tauri/gen/
+
+# ---- client: regenerable runtime (npm run assemble rebuilds it) ----
+dsh-local-client/src-tauri/resources/runtime/
+
+# ---- client: generated icons (regenerate with: npx tauri icon) ----
+dsh-local-client/src-tauri/icons/android/
+dsh-local-client/src-tauri/icons/ios/
+
+# ---- OS cruft ----
+.DS_Store

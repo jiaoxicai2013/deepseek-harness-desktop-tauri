@@ -1,0 +1,32 @@
+# Local client profile patch layer, applied after the dsh-base and dsh-web-app
+# bundle layers. Row ids and patch syntax follow
+# node_modules/@deepseek-ai/dsh-base/cordis.patch.yml and the id-targeted
+# `disabled: true` entries in @deepseek-ai/dsh-web-app/cordis.patch.yml.
+
+# Telemetry stays off in the local client. The base bundle mounts this row
+# disabled-by-config default, but "config cannot disable a row" (base comment);
+# the launcher-owned stance is a `disabled: true` patch.
+
+# Secrets never touch disk in plaintext: the base bundle's credentials row
+# (credentials-local, plaintext `$DSH_HOME/.credentials.yaml`) is disabled
+# and replaced by the client-owned provider storing values in the macOS
+# Keychain only. Patch `name` is a match guard, not an override, in the
+# include patch algorithm — so the swap is a disable + insert pair, the same
+# shape the web-app bundle uses for its `agent-presets` row. The new row takes
+# its own id (the loader rejects duplicate entry ids); the service seam still
+# binds under the single `credentials` seat either way.
+- id: session-telemetry-otel
+  disabled: true
+
+- id: credentials
+  disabled: true
+
+- insert:
+    - id: credentials-keychain
+      name: 'dsh-local-credentials-keychain'
+
+# Session logs live under the client-owned $DSH_HOME (the Tauri shell points
+# DSH_HOME at its app-data directory before boot).
+- id: session-persistence-jsonl
+  config:
+    root: !!js dshHomePath('sessions')

@@ -1,0 +1,14 @@
+{
+  "name": "dsh-local-client",
+  "private": true,
+  "version": "0.1.0",
+  "description": "DeepSeek Harness local desktop client (Tauri shell + Node host sidecar)",
+  "scripts": {
+    "tauri": "tauri",
+    "assemble": "node scripts/assemble-runtime.mjs"
+  },
+  "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
+    "@tauri-apps/cli": "^2"
+  }
+}
