@@ -65,7 +65,5 @@ npx tauri build           # 打 .app（src-tauri/target/release/bundle/macos/）
 <p align="center">
   <img src="assets/wechat.jpg" alt="微信收款码" width="240">
   &nbsp;&nbsp;&nbsp;&nbsp;
-  <!-- 支付宝收款码：将图片保存为 assets/alipay.jpg 后取消本行注释
   <img src="assets/alipay.jpg" alt="支付宝收款码" width="240">
-  -->
 </p>
