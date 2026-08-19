@@ -17,5 +17,8 @@ dsh-local-client/src-tauri/resources/runtime/
 dsh-local-client/src-tauri/icons/android/
 dsh-local-client/src-tauri/icons/ios/
 
+# ---- secrets & keys ----
+.ssh/
+
 # ---- OS cruft ----
 .DS_Store
