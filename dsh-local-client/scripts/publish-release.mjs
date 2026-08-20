@@ -60,18 +60,24 @@ async function api(path, opts = {}) {
   return body
 }
 
-// 1. create release
-const release = await api('/repos/' + OWNER + '/' + REPO + '/releases', {
-  method: 'POST',
-  body: JSON.stringify({
-    tag_name: TAG,
-    name: 'DeepSeek Harness Local ' + TAG,
-    body: NOTES,
-    draft: false,
-    prerelease: false,
-  }),
-})
-console.log('release created:', release.html_url)
+// 1. release: reuse if it already exists, otherwise create
+let release
+try {
+  release = await api('/repos/' + OWNER + '/' + REPO + '/releases/tags/' + TAG)
+  console.log('release already exists:', release.html_url)
+} catch (err) {
+  release = await api('/repos/' + OWNER + '/' + REPO + '/releases', {
+    method: 'POST',
+    body: JSON.stringify({
+      tag_name: TAG,
+      name: 'DeepSeek Harness Local ' + TAG,
+      body: NOTES,
+      draft: false,
+      prerelease: false,
+    }),
+  })
+  console.log('release created:', release.html_url)
+}
 
 // 2. upload assets (DMG + PKG)
 const assets = [
@@ -83,7 +89,7 @@ for (const a of assets) {
   const { fileURLToPath } = await import('node:url')
   const { dirname, join } = await import('node:path')
   const here = dirname(fileURLToPath(import.meta.url))
-  const file = join(here, '..', a.path)
+  const file = join(here, '..', '..', a.path)
   const data = readFileSync(file)
   const up = await fetch(
     release.upload_url.replace('{?name,label}', '') + '?name=' + encodeURIComponent(a.name),
