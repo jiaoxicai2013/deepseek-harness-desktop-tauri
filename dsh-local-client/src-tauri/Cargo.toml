@@ -1,6 +1,6 @@
 [package]
 name = "dsh-local-client"
-version = "0.1.0"
+version = "0.2.0"
 description = "DeepSeek Harness local desktop client: Tauri shell + Node host sidecar"
 edition = "2021"
 
