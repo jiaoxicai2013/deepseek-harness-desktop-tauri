@@ -70,7 +70,7 @@ pub fn spawn_and_open(app: AppHandle) {
         eprintln!("[shell] runtime dir: {}", runtime.display());
         let node = runtime.join("node/bin/node");
         let wrapper = runtime.join("host-wrapper.sh");
-        let bin = runtime.join("app/lib/bin.js");
+        let bin = runtime.join("app/node_modules/@deepseek-ai/dsh/lib/bin.js");
         let patch = runtime.join("desktop.patch.yml");
         let data_dir = match app.path().app_data_dir() {
             Ok(dir) => dir,
@@ -199,8 +199,22 @@ pub fn spawn_and_open(app: AppHandle) {
     });
 }
 
+/// Bundled dsh runtime version from resources/runtime/version.json (assemble writes it).
+fn bundled_dsh_version(runtime: &std::path::Path) -> Option<String> {
+    let file = runtime.join("version.json");
+    let text = std::fs::read_to_string(file).ok()?;
+    let json: serde_json::Value = serde_json::from_str(&text).ok()?;
+    json.get("dsh")?.as_str().map(|s| s.to_string())
+}
+
 /// Create the main window pointing at the host's loopback URL.
 fn open_main_window(app: &AppHandle, port: u16) {
+    let dsh_version = app
+        .path()
+        .resource_dir()
+        .ok()
+        .map(|dir| dir.join("runtime"))
+        .and_then(|runtime| bundled_dsh_version(&runtime));
     use tauri_plugin_window_state::{StateFlags, WindowExt};
     let url = format!("http://127.0.0.1:{port}/");
     let url = match url.parse() {
@@ -210,8 +224,12 @@ fn open_main_window(app: &AppHandle, port: u16) {
             return;
         }
     };
-    let window = match WebviewWindowBuilder::new(app, "main", WebviewUrl::External(url))
-        .title("DeepSeek Harness Local")
+    let title = match &dsh_version {
+            Some(v) => format!("DeepSeek Harness Local · dsh {v}"),
+            None => "DeepSeek Harness Local".to_string(),
+        };
+        let window = match WebviewWindowBuilder::new(app, "main", WebviewUrl::External(url))
+            .title(&title)
         .inner_size(1280.0, 860.0)
         .min_inner_size(720.0, 520.0)
         .build()
