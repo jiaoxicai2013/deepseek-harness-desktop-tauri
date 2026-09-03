@@ -36,6 +36,33 @@
   生成脚本自动按渲染像素扫描居中（无视觉预览也能精确对齐）
 - 修改设计后重新生成：`node scripts/gen-icon.mjs && npx tauri icon src-tauri/icons/icon-source.png`
 
+## 接入上游更新
+
+上游 [deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) 发版频繁
+（daily alpha、频繁 rc）。本客户端通过 npm 发布的 `@deepseek-ai/dsh` 追踪上游——
+宿主、前端、插件同版本捆绑。接入流程：
+
+```bash
+node scripts/update-upstream.mjs --check                          # 检查是否有更新
+node scripts/update-upstream.mjs --apply                           # 更新到 npm latest
+node scripts/update-upstream.mjs --apply --channel alpha           # 更新到 alpha 线
+node scripts/update-upstream.mjs --apply --version 0.1.2-alpha.5   # 指定版本
+node scripts/update-upstream.mjs --apply --force                   # 无变化时强制重装+冒烟
+```
+
+**事务式**：管线 = 规范化插件 peer 范围 → 重新组装运行时（pnpm 安装 + 原生模块）→
+启动新宿主冒烟（HTTP 200 + boot manifest）。全部通过后钉点（`runtime-version.json`）
+才更新；任一步失败则回滚钉点并退出非零——上游发布损坏的版本不会卡死客户端。
+
+**版本单一来源**：`runtime-version.json`（assemble 与 update 都读它）。
+assemble 会把实际安装的上游版本写进 `resources/runtime/version.json`，
+客户端窗口标题显示「DeepSeek Harness Local · dsh <版本>」便于核对嵌入版本。
+
+**已知上游问题**（2026-08 观测）：npm `latest` 的 `0.1.1-rc.2` 依赖
+`dsh-invariants@>=0.1.1 <0.2.0-0`，该范围按 semver 预发布规则排除了所有 0.1.1
+预发布版 → 无法安装。当前钉点为可安装的 `0.1.0-rc.8`；待上游修复后
+`--apply` 即可跟进。
+
 ## 目录
 
 - `src-tauri/` — Rust 壳（main.rs / lib.rs / host.rs）
