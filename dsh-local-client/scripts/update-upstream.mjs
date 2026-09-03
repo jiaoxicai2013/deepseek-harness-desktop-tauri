@@ -114,7 +114,7 @@ async function smokeTest() {
   const { spawn } = await import('node:child_process')
   console.log('  冒烟测试: 启动新宿主 …')
   const child = spawn(nodeBin, [bin, 'web', '--patch', patch, '--host', '127.0.0.1', '--port', '0'], {
-    env: { ...process.env, DSH_HOME: home, DSH_TELEMETRY_DISABLED: '1' },
+    env: { ...process.env, DSH_HOME: home, DSH_TELEMETRY_DISABLED: '1', DSH_CREDENTIALS_BACKEND: 'memory' },
   })
   let url
   let out = ''
@@ -123,21 +123,29 @@ async function smokeTest() {
     const failTimer = setTimeout(() => reject(new Error('超时未就绪\n' + out.slice(-800))), 60000)
     child.stdout.on('data', (chunk) => {
       out += chunk
-      const m = out.match(/http:\/\/127\.0\.0\.1:(\d+)/)
+      const m = out.match(/http:\/\/127\.0\.0\.1:\d+(\/[^\s]*)?/)
       if (m && !url) { url = m[0]; clearTimeout(failTimer); resolve() }
     })
     child.on('exit', (code) => reject(new Error('宿主提前退出 code=' + code + '\n' + out.slice(-800))))
   })
   clearTimeout(killer)
-  const res = await fetch(url + '/')
+  // 0.1.2+ requires a browser-session token: GET the printed URL (303 -> cookie),
+  // then request the root with that cookie.
+  const urlRoot = url.split('?')[0]
+  const first = await fetch(url, { redirect: 'manual' }) // keep the 303: it carries the session cookie
+  const setCookies = typeof first.headers.getSetCookie === 'function'
+    ? first.headers.getSetCookie()
+    : (first.headers.get('set-cookie') ? [first.headers.get('set-cookie')] : [])
+  const cookie = (setCookies[0] ?? '').split(';')[0]
+  const res = await fetch(urlRoot, { headers: cookie ? { Cookie: cookie } : {} })
   const html = await res.text()
   child.kill('SIGTERM')
   await new Promise((r2) => child.once('exit', r2))
   rmSync(home, { recursive: true, force: true })
   if (res.status !== 200 || !html.includes('__DSH_BOOT__')) {
-    throw new Error('冒烟测试未通过: HTTP ' + res.status)
+    throw new Error('冒烟测试未通过: HTTP ' + res.status + (cookie ? '' : ' (无会话 cookie)'))
   }
-  console.log('  冒烟测试通过 ✓  HTTP 200 + boot manifest | ' + url)
+  console.log('  冒烟测试通过 ✓  HTTP 200 + boot manifest | ' + urlRoot)
 }
 
 // =============================================================================

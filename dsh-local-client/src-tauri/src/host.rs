@@ -51,15 +51,22 @@ fn runtime_dir(app: &AppHandle) -> PathBuf {
     }
 }
 
-/// The host's stdout URL line, e.g. "dsh web: http://127.0.0.1:33123 ...".
-fn parse_port(line: &str) -> Option<u16> {
+/// Parse the host's stdout URL line, e.g.
+///   "dsh web: http://127.0.0.1:33123/?token=abc..."
+/// Newer runtimes require the browser-session token: return the FULL URL so the
+/// webview can follow the 303 -> cookie exchange. Returns (url, port).
+fn parse_url_line(line: &str) -> Option<(String, u16)> {
     let idx = line.find("http://127.0.0.1:")?;
-    let rest = &line[idx + "http://127.0.0.1:".len()..];
-    let digits: String = rest.chars().take_while(|c| c.is_ascii_digit()).collect();
-    if digits.is_empty() {
-        return None;
-    }
-    digits.parse().ok()
+    let rest = &line[idx..];
+    let url: String = rest
+        .split_whitespace()
+        .next()?
+        .trim_end_matches(['.', ',', ')', ']'])
+        .to_string();
+    let after_port = &url["http://127.0.0.1:".len()..];
+    let digits: String = after_port.chars().take_while(|c| c.is_ascii_digit()).collect();
+    let port: u16 = digits.parse().ok()?;
+    Some((url, port))
 }
 
 /// Spawn the host and, once the port is known, open the main window.
@@ -173,12 +180,12 @@ pub fn spawn_and_open(app: AppHandle) {
                 let reader = BufReader::new(stdout);
                 for line in reader.lines().map_while(Result::ok) {
                     eprintln!("[host] {line}");
-                    if let Some(port) = parse_port(&line) {
+                    if let Some((url, port)) = parse_url_line(&line) {
                         if let Some(state) = app.try_state::<HostPort>() {
                             *state.0.lock().unwrap() = Some(port);
                         }
                         let app_for_window = app.clone();
-                        let _ = app.run_on_main_thread(move || open_main_window(&app_for_window, port));
+                        let _ = app.run_on_main_thread(move || open_main_window(&app_for_window, url));
                         break;
                     }
                 }
@@ -207,8 +214,8 @@ fn bundled_dsh_version(runtime: &std::path::Path) -> Option<String> {
     json.get("dsh")?.as_str().map(|s| s.to_string())
 }
 
-/// Create the main window pointing at the host's loopback URL.
-fn open_main_window(app: &AppHandle, port: u16) {
+/// Create the main window pointing at the host's (token) URL.
+fn open_main_window(app: &AppHandle, url_string: String) {
     let dsh_version = app
         .path()
         .resource_dir()
@@ -216,11 +223,10 @@ fn open_main_window(app: &AppHandle, port: u16) {
         .map(|dir| dir.join("runtime"))
         .and_then(|runtime| bundled_dsh_version(&runtime));
     use tauri_plugin_window_state::{StateFlags, WindowExt};
-    let url = format!("http://127.0.0.1:{port}/");
-    let url = match url.parse() {
+    let url = match url_string.parse() {
         Ok(url) => url,
         Err(err) => {
-            eprintln!("dsh-local-client: bad URL {url}: {err}");
+            eprintln!("dsh-local-client: bad URL {url_string}: {err}");
             return;
         }
     };

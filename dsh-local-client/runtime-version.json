@@ -1,5 +1,5 @@
 {
-  "dsh": "0.1.0-rc.8",
+  "dsh": "0.1.2-rc.1",
   "channel": "latest",
   "note": "上游 @deepseek-ai/dsh 的钉住版本（单一版本源，assemble/update 脚本读取）"
 }
