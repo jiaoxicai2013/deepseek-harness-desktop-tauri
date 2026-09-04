@@ -94,7 +94,9 @@ cd .. && npx tauri build   # 产物：src-tauri/target/release/bundle/macos/*.ap
 
 - **启动时自动打开窗口**：托盘菜单「启动时自动打开窗口」勾选项控制。关闭后
   应用启动只驻留托盘（宿主仍在后台运行），需要时点托盘「显示/隐藏」打开网页窗口。
-  偏好存 `prefs.json`（app 数据目录，`autoOpenWindow`，默认 true）。
+  偏好存 `prefs.json`（app 数据目录，`autoOpenWindow`，默认 false）。
+- **绝不打开系统浏览器**：宿主以 `--no-open` 启动（0.1.2+ 的 `dsh web` 默认会调起默认浏览器）；
+  网页界面只可能出现在本应用窗口里，启动时是否显示由上面的开关决定。
 - **DSH_HOME 环境变量**：默认 `~/Library/Application Support/ai.deepseek.harness-local/dsh-home`；
   设置 `DSH_HOME` 可重定向（例如测试/便携模式）。
 - **宿主看门狗**：`host-wrapper.sh` 把宿主作为子进程；外壳进程死亡时 stdin EOF

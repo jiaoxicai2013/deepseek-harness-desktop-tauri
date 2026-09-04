@@ -113,7 +113,7 @@ async function smokeTest() {
   const home = mkdtempSync(join(tmpdir(), 'dsh-smoke-'))
   const { spawn } = await import('node:child_process')
   console.log('  冒烟测试: 启动新宿主 …')
-  const child = spawn(nodeBin, [bin, 'web', '--patch', patch, '--host', '127.0.0.1', '--port', '0'], {
+  const child = spawn(nodeBin, [bin, 'web', '--patch', patch, '--host', '127.0.0.1', '--port', '0', '--no-open'], {
     env: { ...process.env, DSH_HOME: home, DSH_TELEMETRY_DISABLED: '1', DSH_CREDENTIALS_BACKEND: 'memory' },
   })
   let url

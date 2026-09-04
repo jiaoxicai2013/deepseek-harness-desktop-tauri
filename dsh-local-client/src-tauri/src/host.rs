@@ -51,7 +51,8 @@ fn runtime_dir(app: &AppHandle) -> PathBuf {
     }
 }
 
-/// Preference: auto-open the main window on startup (default true).
+/// Preference: auto-open the main window on startup (default false: the user
+/// opted for a tray-only start; enable via the tray menu item when wanted).
 const PREFS_AUTO_OPEN_KEY: &str = "autoOpenWindow";
 
 fn prefs_path(data_dir: &std::path::Path) -> std::path::PathBuf {
@@ -65,7 +66,7 @@ fn load_auto_open(data_dir: &std::path::Path) -> bool {
     serde_json::from_str::<serde_json::Value>(&text)
         .ok()
         .and_then(|v| v.get(PREFS_AUTO_OPEN_KEY).and_then(|b| b.as_bool()))
-        .unwrap_or(true)
+        .unwrap_or(false)
 }
 
 fn save_auto_open(data_dir: &std::path::Path, value: bool) {
@@ -147,6 +148,9 @@ pub fn spawn_and_open(app: AppHandle) {
             .arg("127.0.0.1")
             .arg("--port")
             .arg("0")
+            // 0.1.2+ 'dsh web' opens the default browser unless --no-open; the
+            // window (if any) is owned by this shell, so never open the browser.
+            .arg("--no-open")
             .env("DSH_HOME", &dsh_home)
             .env("DSH_TELEMETRY_DISABLED", "1")
             .stdin(Stdio::piped())
