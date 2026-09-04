@@ -298,8 +298,8 @@ pub fn open_main_window(app: &AppHandle, url_string: String) {
 
 /// Tray icon: show/hide toggle and quit. Skipped when no window icon exists
 /// (dev shell without a bundle icon; packaged apps always have one).
-/// Open the main window from the stored host URL (tray action).
-fn open_window_from_state(app: &tauri::AppHandle) {
+/// Open the main window from the stored host URL (tray / dock / second-instance).
+pub fn open_window_from_state(app: &tauri::AppHandle) {
     if let Some(state) = app.try_state::<HostUrl>() {
         if let Some(url) = state.0.lock().unwrap().clone() {
             open_main_window(app, url);

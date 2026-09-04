@@ -28,11 +28,13 @@ pub struct HostUrl(pub Mutex<Option<String>>);
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            // Second launch: surface the existing window instead of booting a
-            // second host (the host process is single-instance by design too).
+            // Second launch: surface the existing window, or open one from the
+            // stored host URL when the app runs tray-only (auto-open off).
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.show();
                 let _ = window.set_focus();
+            } else {
+                host::open_window_from_state(app);
             }
         }))
         .plugin(tauri_plugin_window_state::Builder::default().build())
@@ -63,6 +65,13 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building the DeepSeek Harness Local client")
         .run(|app, event| {
+            // Dock icon click on macOS with no visible window (tray mode):
+            // open the host window instead of doing nothing.
+            if let tauri::RunEvent::Reopen { has_visible_windows, .. } = event {
+                if !has_visible_windows && app.get_webview_window("main").is_none() {
+                    host::open_window_from_state(app);
+                }
+            }
             // Graceful host shutdown on exit: TERM, wait briefly, then KILL.
             if let tauri::RunEvent::Exit = event {
                 if let Some(state) = app.try_state::<HostState>() {
