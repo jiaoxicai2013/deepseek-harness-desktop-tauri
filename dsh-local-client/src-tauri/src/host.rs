@@ -174,20 +174,27 @@ pub fn spawn_and_open(app: AppHandle) {
         }
 
         // stdout -> parse the URL line, then open the window on the main thread.
+        // IMPORTANT: keep reading stdout for the host's whole lifetime. The pipe's
+        // read end must stay open: if this thread ends, the host's later stdout
+        // writes (plugin logs, e.g. the forge injector) hit EPIPE and crash it.
         if let Some(stdout) = child.stdout.take() {
             let app = app.clone();
             std::thread::spawn(move || {
                 let reader = BufReader::new(stdout);
+                let mut opened = false;
                 for line in reader.lines().map_while(Result::ok) {
-                    eprintln!("[host] {line}");
-                    if let Some((url, port)) = parse_url_line(&line) {
-                        if let Some(state) = app.try_state::<HostPort>() {
-                            *state.0.lock().unwrap() = Some(port);
+                    if !opened {
+                        eprintln!("[host] {line}");
+                        if let Some((url, port)) = parse_url_line(&line) {
+                            if let Some(state) = app.try_state::<HostPort>() {
+                                *state.0.lock().unwrap() = Some(port);
+                            }
+                            let app_for_window = app.clone();
+                            let _ = app.run_on_main_thread(move || open_main_window(&app_for_window, url));
+                            opened = true;
                         }
-                        let app_for_window = app.clone();
-                        let _ = app.run_on_main_thread(move || open_main_window(&app_for_window, url));
-                        break;
                     }
+                    // subsequent lines: discard silently (host/plugin logs)
                 }
             });
         }
