@@ -9,11 +9,11 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
-use tauri::menu::{Menu, MenuItem};
+use tauri::menu::{CheckMenuItem, Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 
-use crate::{HostPort, HostState};
+use crate::{HostPort, HostState, HostUrl};
 
 /// Handle on the host process for graceful shutdown. The pid lets us send
 /// signals without owning the Child (the spawn thread keeps that for wait()).
@@ -50,6 +50,32 @@ fn runtime_dir(app: &AppHandle) -> PathBuf {
         }
     }
 }
+
+/// Preference: auto-open the main window on startup (default true).
+const PREFS_AUTO_OPEN_KEY: &str = "autoOpenWindow";
+
+fn prefs_path(data_dir: &std::path::Path) -> std::path::PathBuf {
+    data_dir.join("prefs.json")
+}
+
+fn load_auto_open(data_dir: &std::path::Path) -> bool {
+    let Ok(text) = std::fs::read_to_string(prefs_path(data_dir)) else {
+        return true;
+    };
+    serde_json::from_str::<serde_json::Value>(&text)
+        .ok()
+        .and_then(|v| v.get(PREFS_AUTO_OPEN_KEY).and_then(|b| b.as_bool()))
+        .unwrap_or(true)
+}
+
+fn save_auto_open(data_dir: &std::path::Path, value: bool) {
+    let _ = std::fs::create_dir_all(data_dir);
+    let _ = std::fs::write(
+        prefs_path(data_dir),
+        format!("{{\"{PREFS_AUTO_OPEN_KEY}\":{value}}}\n"),
+    );
+}
+
 
 /// Parse the host's stdout URL line, e.g.
 ///   "dsh web: http://127.0.0.1:33123/?token=abc..."
@@ -179,19 +205,27 @@ pub fn spawn_and_open(app: AppHandle) {
         // writes (plugin logs, e.g. the forge injector) hit EPIPE and crash it.
         if let Some(stdout) = child.stdout.take() {
             let app = app.clone();
+            let data_dir = data_dir.clone();
             std::thread::spawn(move || {
                 let reader = BufReader::new(stdout);
-                let mut opened = false;
+                let mut url_seen = false;
                 for line in reader.lines().map_while(Result::ok) {
-                    if !opened {
+                    if !url_seen {
                         eprintln!("[host] {line}");
                         if let Some((url, port)) = parse_url_line(&line) {
+                            url_seen = true;
                             if let Some(state) = app.try_state::<HostPort>() {
                                 *state.0.lock().unwrap() = Some(port);
                             }
-                            let app_for_window = app.clone();
-                            let _ = app.run_on_main_thread(move || open_main_window(&app_for_window, url));
-                            opened = true;
+                            if let Some(state) = app.try_state::<HostUrl>() {
+                                *state.0.lock().unwrap() = Some(url.clone());
+                            }
+                            if load_auto_open(&data_dir) {
+                                let app_for_window = app.clone();
+                                let _ = app.run_on_main_thread(move || open_main_window(&app_for_window, url));
+                            } else {
+                                eprintln!("[shell] auto-open disabled: staying in tray (open via tray \"显示\")");
+                            }
                         }
                     }
                     // subsequent lines: discard silently (host/plugin logs)
@@ -221,8 +255,14 @@ fn bundled_dsh_version(runtime: &std::path::Path) -> Option<String> {
     json.get("dsh")?.as_str().map(|s| s.to_string())
 }
 
-/// Create the main window pointing at the host's (token) URL.
-fn open_main_window(app: &AppHandle, url_string: String) {
+/// Create the main window pointing at the host's (token) URL. If a main
+/// window already exists (e.g. the user opened it via the tray), surface it.
+pub fn open_main_window(app: &AppHandle, url_string: String) {
+    if let Some(existing) = app.get_webview_window("main") {
+        let _ = existing.show();
+        let _ = existing.set_focus();
+        return;
+    }
     let dsh_version = app
         .path()
         .resource_dir()
@@ -258,18 +298,31 @@ fn open_main_window(app: &AppHandle, url_string: String) {
 
 /// Tray icon: show/hide toggle and quit. Skipped when no window icon exists
 /// (dev shell without a bundle icon; packaged apps always have one).
+/// Open the main window from the stored host URL (tray action).
+fn open_window_from_state(app: &tauri::AppHandle) {
+    if let Some(state) = app.try_state::<HostUrl>() {
+        if let Some(url) = state.0.lock().unwrap().clone() {
+            open_main_window(app, url);
+        }
+    }
+}
+
 pub fn install_tray(app: &tauri::App) -> tauri::Result<()> {
     let Some(icon) = app.default_window_icon() else {
         return Ok(());
     };
+    let data_dir = app.path().app_data_dir()?;
+    let auto_open = load_auto_open(&data_dir);
     let toggle = MenuItem::with_id(app, "toggle", "显示/隐藏", true, None::<&str>)?;
+    let auto = CheckMenuItem::with_id(app, "auto-open", "启动时自动打开窗口", true, auto_open, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
-    let menu = Menu::with_items(app, &[&toggle, &quit])?;
+    let menu = Menu::with_items(app, &[&toggle, &auto, &quit])?;
+    let auto_handle = auto.clone();
     TrayIconBuilder::new()
         .icon(icon.clone())
         .menu(&menu)
         .show_menu_on_left_click(false)
-        .on_menu_event(|app, event| match event.id.as_ref() {
+        .on_menu_event(move |app, event| match event.id.as_ref() {
             "toggle" => {
                 if let Some(window) = app.get_webview_window("main") {
                     let visible = window.is_visible().unwrap_or(true);
@@ -279,6 +332,19 @@ pub fn install_tray(app: &tauri::App) -> tauri::Result<()> {
                         let _ = window.show();
                         let _ = window.set_focus();
                     }
+                } else {
+                    open_window_from_state(app);
+                }
+            }
+            "auto-open" => {
+                let next = !auto_handle.is_checked().unwrap_or(false);
+                let _ = auto_handle.set_checked(next);
+                if let Ok(dir) = app.path().app_data_dir() {
+                    save_auto_open(&dir, next);
+                }
+                // Turning it on reveals the window if the host is already up.
+                if next && app.get_webview_window("main").is_none() {
+                    open_window_from_state(app);
                 }
             }
             "quit" => app.exit(0),

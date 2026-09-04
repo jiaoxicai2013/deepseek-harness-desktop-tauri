@@ -20,6 +20,10 @@ pub struct HostState(pub Mutex<Option<host::HostChild>>);
 /// The port the host bound, once learned from its stdout URL line.
 pub struct HostPort(pub Mutex<Option<u16>>);
 
+/// The full (token) URL of the running host; kept even when the window was
+/// not auto-opened, so the tray "显示" can create it on demand.
+pub struct HostUrl(pub Mutex<Option<String>>);
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -34,6 +38,7 @@ pub fn run() {
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .manage(HostState(Mutex::new(None)))
         .manage(HostPort(Mutex::new(None)))
+        .manage(HostUrl(Mutex::new(None)))
         .setup(|app| {
             eprintln!("[shell] setup enter");
             host::install_tray(app)?;
